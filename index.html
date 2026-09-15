@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#000000">
+    <title>Countdown</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app" class="watch-container">
+        <!-- Main Screen -->
+        <main id="main-view" class="view active">
+            <!-- Header -->
+            <header class="app-header">
+                <h1 class="app-title">Countdown</h1>
+                <button id="btn-settings" class="icon-btn" aria-label="Settings" title="Rules">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+            </header>
+
+            <!-- Target Section -->
+            <section class="card-section">
+                <div class="section-label">TARGET</div>
+                <button id="target-display-btn" class="target-btn">
+                    <span id="target-value" class="placeholder">Set Target</span>
+                    <span class="target-icon">#</span>
+                </button>
+            </section>
+
+            <!-- Numbers Section -->
+            <section class="card-section">
+                <div class="section-header-row">
+                    <span class="section-label">NUMBERS (<span id="numbers-count">0</span>)</span>
+                    <button id="btn-clear-numbers" class="text-btn danger hidden">Clear</button>
+                </div>
+
+                <!-- Number Chips -->
+                <div id="number-chips" class="chips-grid"></div>
+
+                <!-- Quick Presets -->
+                <div class="presets-row">
+                    <button class="preset-btn" data-val="25">25</button>
+                    <button class="preset-btn" data-val="50">50</button>
+                    <button class="preset-btn" data-val="75">75</button>
+                    <button class="preset-btn" data-val="100">100</button>
+                </div>
+
+                <!-- Add Number Button -->
+                <button id="btn-open-num-keypad" class="action-btn secondary">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Add Number</span>
+                </button>
+            </section>
+
+            <!-- Solve Button -->
+            <button id="btn-solve" class="solve-btn" disabled>
+                <svg class="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span id="solve-btn-text">Solve</span>
+            </button>
+        </main>
+
+        <!-- Solution View Screen -->
+        <section id="solution-view" class="view">
+            <header class="app-header">
+                <button id="btn-back-solution" class="nav-back-btn">‹ Back</button>
+                <span class="view-title">Solution</span>
+            </header>
+
+            <div class="solution-content">
+                <div class="solution-badge">Target: <strong id="solution-target-label"></strong></div>
+
+                <div class="steps-card">
+                    <div class="card-title">STEPS</div>
+                    <div id="solution-steps-list" class="steps-list"></div>
+                </div>
+
+                <div class="expr-card">
+                    <div class="card-title">EXPRESSION</div>
+                    <div id="solution-expr-text" class="expr-text"></div>
+                </div>
+
+                <!-- Other Solutions Collapsible -->
+                <div id="other-solutions-container" class="other-solutions hidden">
+                    <button id="btn-toggle-others" class="accordion-toggle">
+                        <span>Other Solutions (<span id="other-count">0</span>)</span>
+                        <span id="other-chevron">▾</span>
+                    </button>
+                    <div id="other-solutions-list" class="other-list hidden"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings Modal -->
+        <section id="settings-view" class="view">
+            <header class="app-header">
+                <button id="btn-back-settings" class="nav-back-btn">‹ Back</button>
+                <span class="view-title">Rules</span>
+            </header>
+
+            <div class="settings-content">
+                <div class="settings-group">
+                    <div class="group-title">ADVANCED OPS</div>
+                    <label class="toggle-row">
+                        <span>Factorials (!)</span>
+                        <input type="checkbox" id="toggle-factorial">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <label class="toggle-row">
+                        <span>Exponents (^)</span>
+                        <input type="checkbox" id="toggle-exponents">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <label class="toggle-row">
+                        <span>Roots (√)</span>
+                        <input type="checkbox" id="toggle-roots">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-group">
+                    <div class="group-title">EXCLUDE OPERATORS</div>
+                    <div class="exclude-grid">
+                        <button class="exclude-btn" data-op="+">+</button>
+                        <button class="exclude-btn" data-op="-">-</button>
+                        <button class="exclude-btn" data-op="*">*</button>
+                        <button class="exclude-btn" data-op="/">/</button>
+                    </div>
+                </div>
+
+                <button id="btn-reset-rules" class="text-btn danger full-width">Reset Defaults</button>
+            </div>
+        </section>
+
+        <!-- Universal Keypad Modal Overlay -->
+        <div id="keypad-modal" class="modal-overlay hidden">
+            <div class="keypad-container">
+                <div class="keypad-header">
+                    <span id="keypad-title" class="keypad-mode-title">TARGET</span>
+                    <span id="keypad-display" class="keypad-buffer">0</span>
+                </div>
+
+                <div class="numpad-grid">
+                    <button class="num-key" data-key="1">1</button>
+                    <button class="num-key" data-key="2">2</button>
+                    <button class="num-key" data-key="3">3</button>
+                    <button class="num-key" data-key="4">4</button>
+                    <button class="num-key" data-key="5">5</button>
+                    <button class="num-key" data-key="6">6</button>
+                    <button class="num-key" data-key="7">7</button>
+                    <button class="num-key" data-key="8">8</button>
+                    <button class="num-key" data-key="9">9</button>
+                    <button id="btn-keypad-backspace" class="num-key action-key" aria-label="Backspace">⌫</button>
+                    <button class="num-key" data-key="0">0</button>
+                    <button id="btn-keypad-confirm" class="num-key confirm-key" aria-label="Confirm">✓</button>
+                </div>
+
+                <button id="btn-keypad-cancel" class="cancel-bar-btn">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Alert Toast -->
+        <div id="alert-toast" class="toast hidden"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/engine.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
