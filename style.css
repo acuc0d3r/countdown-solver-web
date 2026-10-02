@@ -323,6 +323,115 @@ body {
     margin-top: 10px;
 }
 
+/* The reset above makes everything unselectable, which is right for a watch UI but
+   would leave text fields uncopyable and uncorrectable. */
+input, textarea {
+    user-select: auto;
+    -webkit-user-select: auto;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: none;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+}
+
+/* Native Number & Expression Fields */
+.num-field {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: var(--text-primary);
+    font-family: var(--font-stack);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
+    transition: border-color 0.08s ease;
+}
+
+.num-field::placeholder {
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+.num-field:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.target-field {
+    font-size: 20px;
+    padding: 6px 10px;
+    text-align: center;
+    color: var(--accent-yellow);
+}
+
+.input-row {
+    display: flex;
+    gap: 4px;
+    align-items: stretch;
+    margin-top: 4px;
+}
+
+.add-btn {
+    flex: 0 0 34px;
+    background: var(--accent-blue);
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.08s ease;
+}
+
+.add-btn:active {
+    transform: scale(0.92);
+    background: #0071e3;
+}
+
+.expr-field {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: var(--accent-cyan);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+}
+
+.expr-field::placeholder {
+    color: var(--text-tertiary);
+    font-family: var(--font-stack);
+}
+
+.expr-field:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+}
+
+.expr-feedback {
+    font-size: 10px;
+    color: var(--accent-green);
+    padding: 1px 2px 0;
+    word-break: break-word;
+}
+
+.expr-feedback.error {
+    color: var(--accent-red);
+}
+
 /* Solution View Styling */
 .solution-content {
     display: flex;
@@ -339,6 +448,23 @@ body {
 
 .solution-badge strong {
     color: var(--accent-yellow);
+}
+
+.solution-required {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.solution-required strong {
+    color: var(--accent-cyan);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.expr-mark {
+    color: var(--accent-yellow);
+    background: rgba(255, 214, 10, 0.14);
+    border-radius: 3px;
 }
 
 .steps-card, .expr-card {

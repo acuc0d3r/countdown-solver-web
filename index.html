@@ -27,7 +27,10 @@
             <!-- Target Section -->
             <section class="card-section">
                 <div class="section-label">TARGET</div>
-                <button id="target-display-btn" class="target-btn">
+                <input id="target-input" class="num-field target-field" type="number" inputmode="numeric"
+                       min="1" max="9999" step="1" enterkeyhint="done" placeholder="Set Target"
+                       aria-label="Target number" autocomplete="off">
+                <button id="target-display-btn" class="target-btn hidden">
                     <span id="target-value" class="placeholder">Set Target</span>
                     <span class="target-icon">#</span>
                 </button>
@@ -51,11 +54,33 @@
                     <button class="preset-btn" data-val="100">100</button>
                 </div>
 
-                <!-- Add Number Button -->
-                <button id="btn-open-num-keypad" class="action-btn secondary">
+                <!-- Native Number Entry -->
+                <div id="native-num-row" class="input-row">
+                    <input id="number-input" class="num-field" type="number" inputmode="numeric"
+                           min="1" max="9999" step="1" enterkeyhint="done" placeholder="Add number"
+                           aria-label="Add number" autocomplete="off">
+                    <button id="btn-add-number" class="add-btn" aria-label="Add number">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                </div>
+
+                <!-- Add Number Button (custom keypad mode) -->
+                <button id="btn-open-num-keypad" class="action-btn hidden">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     <span>Add Number</span>
                 </button>
+            </section>
+
+            <!-- Must Use Section -->
+            <section class="card-section">
+                <div class="section-header-row">
+                    <span class="section-label">MUST USE</span>
+                    <button id="btn-clear-required" class="text-btn danger hidden">Clear</button>
+                </div>
+                <input id="required-input" class="expr-field" type="text"
+                       placeholder="(8+4)! or √(9)" aria-label="Expression the solution must use"
+                       enterkeyhint="done" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+                <div id="required-feedback" class="expr-feedback hidden"></div>
             </section>
 
             <!-- Solve Button -->
@@ -74,6 +99,10 @@
 
             <div class="solution-content">
                 <div class="solution-badge">Target: <strong id="solution-target-label"></strong></div>
+
+                <div id="solution-required-badge" class="solution-required hidden">
+                    Must use: <strong id="solution-required-label"></strong>
+                </div>
 
                 <div class="steps-card">
                     <div class="card-title">STEPS</div>
@@ -104,6 +133,15 @@
             </header>
 
             <div class="settings-content">
+                <div class="settings-group">
+                    <div class="group-title">INPUT</div>
+                    <label class="toggle-row">
+                        <span>Custom keypad</span>
+                        <input type="checkbox" id="toggle-keypad-mode">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
                 <div class="settings-group">
                     <div class="group-title">ADVANCED OPS</div>
                     <label class="toggle-row">

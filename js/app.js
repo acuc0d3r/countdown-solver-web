@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const state = {
         target: null,
         numbers: [],
+        required: { ok: true, empty: true, value: null, node: null },
+        keypadInput: false,
         config: {
             allowFactorial: false,
             allowExponents: false,
@@ -14,9 +16,42 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         keypad: {
             mode: 'target', // 'target' or 'number'
-            buffer: ''
+            buffer: '',
+            seeded: false
         }
     };
+
+    const RULES_KEY = 'countdown.rules.v1';
+
+    function saveRules() {
+        try {
+            localStorage.setItem(RULES_KEY, JSON.stringify({
+                allowFactorial: state.config.allowFactorial,
+                allowExponents: state.config.allowExponents,
+                allowRoots: state.config.allowRoots,
+                excluded: Array.from(state.config.excluded),
+                keypadInput: state.keypadInput
+            }));
+        } catch (e) {
+            // Private browsing or a full quota; rules just stay session-only.
+        }
+    }
+
+    function loadRules() {
+        let saved;
+        try {
+            const raw = localStorage.getItem(RULES_KEY);
+            if (raw) saved = JSON.parse(raw);
+        } catch (e) {
+            // Unreadable or malformed storage; fall back to defaults.
+        }
+        if (!saved || typeof saved !== 'object') return;
+        if (typeof saved.allowFactorial === 'boolean') state.config.allowFactorial = saved.allowFactorial;
+        if (typeof saved.allowExponents === 'boolean') state.config.allowExponents = saved.allowExponents;
+        if (typeof saved.allowRoots === 'boolean') state.config.allowRoots = saved.allowRoots;
+        if (Array.isArray(saved.excluded)) state.config.excluded = new Set(saved.excluded);
+        if (typeof saved.keypadInput === 'boolean') state.keypadInput = saved.keypadInput;
+    }
 
     // DOM Elements
     const views = {
@@ -28,16 +63,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const dom = {
         targetBtn: document.getElementById('target-display-btn'),
         targetValue: document.getElementById('target-value'),
+        targetInput: document.getElementById('target-input'),
         numbersCount: document.getElementById('numbers-count'),
         numberChips: document.getElementById('number-chips'),
         btnClearNumbers: document.getElementById('btn-clear-numbers'),
+        numberInput: document.getElementById('number-input'),
+        btnAddNumber: document.getElementById('btn-add-number'),
+        nativeNumRow: document.getElementById('native-num-row'),
         btnOpenNumKeypad: document.getElementById('btn-open-num-keypad'),
+        requiredInput: document.getElementById('required-input'),
+        requiredFeedback: document.getElementById('required-feedback'),
+        btnClearRequired: document.getElementById('btn-clear-required'),
         btnSolve: document.getElementById('btn-solve'),
         solveBtnText: document.getElementById('solve-btn-text'),
         btnSettings: document.getElementById('btn-settings'),
         btnBackSettings: document.getElementById('btn-back-settings'),
         btnBackSolution: document.getElementById('btn-back-solution'),
         solutionTargetLabel: document.getElementById('solution-target-label'),
+        solutionRequiredBadge: document.getElementById('solution-required-badge'),
+        solutionRequiredLabel: document.getElementById('solution-required-label'),
         solutionStepsList: document.getElementById('solution-steps-list'),
         solutionExprText: document.getElementById('solution-expr-text'),
         otherSolutionsContainer: document.getElementById('other-solutions-container'),
@@ -46,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnToggleOthers: document.getElementById('btn-toggle-others'),
         otherSolutionsList: document.getElementById('other-solutions-list'),
         // Settings elements
+        toggleKeypadMode: document.getElementById('toggle-keypad-mode'),
         toggleFactorial: document.getElementById('toggle-factorial'),
         toggleExponents: document.getElementById('toggle-exponents'),
         toggleRoots: document.getElementById('toggle-roots'),
@@ -99,6 +144,40 @@ document.addEventListener('DOMContentLoaded', () => {
         window.scrollTo(0, 0);
     }
 
+    // Native Input Helpers
+    function readWholeNumber(input) {
+        const raw = input.value.trim();
+        if (!/^\d+$/.test(raw)) return null;
+        const val = parseInt(raw, 10);
+        if (!Number.isSafeInteger(val) || val <= 0) return null;
+        return val;
+    }
+
+    function addNumber(val) {
+        if (val === null) return false;
+        if (val > 9999) {
+            showToast('Numbers go up to 9999');
+            return false;
+        }
+        state.numbers.push(val);
+        return true;
+    }
+
+    function applyInputMode() {
+        const keypadMode = state.keypadInput;
+        dom.toggleKeypadMode.checked = keypadMode;
+        dom.targetInput.classList.toggle('hidden', keypadMode);
+        dom.targetBtn.classList.toggle('hidden', !keypadMode);
+        dom.nativeNumRow.classList.toggle('hidden', keypadMode);
+        dom.btnOpenNumKeypad.classList.toggle('hidden', !keypadMode);
+        // Carry the target across when handing off to the keypad.
+        if (keypadMode) {
+            const nativeTarget = readWholeNumber(dom.targetInput);
+            if (nativeTarget !== null) state.target = nativeTarget;
+            if (dom.numberInput.value.trim()) dom.numberInput.value = '';
+        }
+    }
+
     // Render Main View
     function renderMain() {
         // Target display
@@ -132,8 +211,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Solve button state
-        const canSolve = state.target && state.target > 0 && state.numbers.length > 0;
+        const requiredReady = state.required.ok || !dom.requiredInput.value.trim();
+        const canSolve = state.target && state.target > 0 && state.numbers.length > 0 && requiredReady;
         dom.btnSolve.disabled = !canSolve;
+    }
+
+    // Required Expression Field
+    function renderRequired() {
+        const hasText = dom.requiredInput.value.trim().length > 0;
+        dom.btnClearRequired.classList.toggle('hidden', !hasText);
+
+        const fb = dom.requiredFeedback;
+        fb.classList.add('hidden');
+        if (!hasText) { fb.textContent = ''; return; }
+
+        if (state.required.ok) {
+            fb.textContent = `= ${state.required.value}`;
+            fb.classList.remove('error');
+        } else {
+            fb.textContent = state.required.error;
+            fb.classList.add('error');
+        }
+        fb.classList.remove('hidden');
+    }
+
+    function handleRequiredInput() {
+        state.required = window.CountdownEngine.evaluateRequired(dom.requiredInput.value);
+        renderRequired();
+        renderMain();
+    }
+
+    function clearRequired() {
+        dom.requiredInput.value = '';
+        state.required = window.CountdownEngine.evaluateRequired('');
+        haptic('light');
+        renderRequired();
+        renderMain();
     }
 
     // Keypad Logic
@@ -147,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             dom.keypadTitle.textContent = 'ADD NUMBER';
         }
+        state.keypad.seeded = state.keypad.buffer.length > 0;
 
         updateKeypadDisplay();
         dom.keypadModal.classList.remove('hidden');
@@ -166,6 +280,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function appendDigit(digit) {
         const maxLen = state.keypad.mode === 'target' ? 4 : 3;
+        // A buffer pre-filled from the existing target is replaced on first press,
+        // so retyping a value does not append to it.
+        if (state.keypad.seeded) {
+            state.keypad.buffer = '';
+            state.keypad.seeded = false;
+        }
         if (state.keypad.buffer.length < maxLen) {
             if (state.keypad.buffer === '0') state.keypad.buffer = digit;
             else state.keypad.buffer += digit;
@@ -175,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function backspace() {
+        state.keypad.seeded = false;
         if (state.keypad.buffer.length > 0) {
             state.keypad.buffer = state.keypad.buffer.slice(0, -1);
             haptic('light');
@@ -209,6 +330,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Native Target Input
+    dom.targetInput.addEventListener('input', () => {
+        const val = readWholeNumber(dom.targetInput);
+        if (val !== null) state.target = val;
+        else state.target = null;
+        renderMain();
+    });
+
+    dom.targetInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !dom.btnSolve.disabled) {
+            e.preventDefault();
+            dom.btnSolve.click();
+        }
+    });
+
+    // Native Number Input
+    function submitNumberInput() {
+        if (!dom.numberInput.value.trim()) return;
+        const val = readWholeNumber(dom.numberInput);
+        if (val === null) {
+            showToast('Enter a whole number');
+            return;
+        }
+        if (!addNumber(val)) return;
+        haptic('success');
+        dom.numberInput.value = '';
+        renderMain();
+        dom.numberInput.focus();
+    }
+
+    dom.btnAddNumber.addEventListener('click', submitNumberInput);
+    dom.numberInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitNumberInput();
+        }
+    });
+
+    // Required Expression Input
+    dom.requiredInput.addEventListener('input', handleRequiredInput);
+    dom.btnClearRequired.addEventListener('click', clearRequired);
+
     // Keypad Event Listeners
     dom.numKeys.forEach(btn => {
         btn.addEventListener('click', () => appendDigit(btn.dataset.key));
@@ -233,18 +396,29 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnBackSolution.addEventListener('click', () => showView('main'));
 
     // Settings Toggle Handlers
+    dom.toggleKeypadMode.addEventListener('change', (e) => {
+        state.keypadInput = e.target.checked;
+        saveRules();
+        applyInputMode();
+        renderMain();
+        haptic('light');
+    });
+
     dom.toggleFactorial.addEventListener('change', (e) => {
         state.config.allowFactorial = e.target.checked;
+        saveRules();
         haptic('light');
     });
 
     dom.toggleExponents.addEventListener('change', (e) => {
         state.config.allowExponents = e.target.checked;
+        saveRules();
         haptic('light');
     });
 
     dom.toggleRoots.addEventListener('change', (e) => {
         state.config.allowRoots = e.target.checked;
+        saveRules();
         haptic('light');
     });
 
@@ -258,6 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.config.excluded.add(op);
                 btn.classList.add('excluded');
             }
+            saveRules();
             haptic('light');
         });
     });
@@ -272,6 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.toggleExponents.checked = false;
         dom.toggleRoots.checked = false;
         dom.excludeBtns.forEach(b => b.classList.remove('excluded'));
+        saveRules();
         showToast('Rules reset to default');
     });
 
@@ -293,6 +469,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Run asynchronously via setTimeout so UI renders spinner
         setTimeout(() => {
             try {
+                const requiredArg = (state.required.ok && !state.required.empty)
+                    ? { value: state.required.value, node: state.required.node }
+                    : null;
+
                 const solutions = window.CountdownEngine.solve(
                     state.numbers,
                     state.target,
@@ -301,6 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         allowExponents: state.config.allowExponents,
                         allowRoots: state.config.allowRoots,
                         excluded: state.config.excluded,
+                        required: requiredArg,
                         maxSolutions: 8
                     }
                 );
@@ -327,26 +508,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function displaySolution(solutions) {
         const primary = solutions[0];
+        const req = (state.required.ok && !state.required.empty) ? state.required : null;
         dom.solutionTargetLabel.textContent = state.target;
 
-        // Render step by step arithmetic
-        dom.solutionStepsList.innerHTML = '';
-        if (primary.steps && primary.steps.length > 0) {
-            primary.steps.forEach(step => {
-                const div = document.createElement('div');
-                div.className = 'step-item';
-                div.textContent = step.line;
-                dom.solutionStepsList.appendChild(div);
-            });
+        if (req) {
+            dom.solutionRequiredBadge.classList.remove('hidden');
+            dom.solutionRequiredLabel.textContent = req.node.formatted;
         } else {
-            const div = document.createElement('div');
-            div.className = 'step-item';
-            div.textContent = primary.formatted;
-            dom.solutionStepsList.appendChild(div);
+            dom.solutionRequiredBadge.classList.add('hidden');
         }
 
-        // Render formula
-        dom.solutionExprText.textContent = primary.formatted;
+        // No prepend for the required expression: the solver only returns answers that
+        // contain it, so getEvaluationSteps() already walks it.
+        const steps = (primary.steps && primary.steps.length > 0)
+            ? primary.steps
+            : [{ line: primary.formatted, result: primary.value }];
+
+        dom.solutionStepsList.innerHTML = '';
+        steps.forEach(step => {
+            const div = document.createElement('div');
+            div.className = 'step-item';
+            div.textContent = step.line;
+            dom.solutionStepsList.appendChild(div);
+        });
+
+        if (req && primary.html) {
+            dom.solutionExprText.innerHTML = primary.html;
+        } else {
+            dom.solutionExprText.textContent = primary.formatted;
+        }
 
         // Render alternative solutions
         if (solutions.length > 1) {
@@ -368,5 +558,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize
+    loadRules();
+    dom.toggleFactorial.checked = state.config.allowFactorial;
+    dom.toggleExponents.checked = state.config.allowExponents;
+    dom.toggleRoots.checked = state.config.allowRoots;
+    state.config.excluded.forEach(op => {
+        const btn = document.querySelector(`.exclude-btn[data-op="${op}"]`);
+        if (btn) btn.classList.add('excluded');
+    });
+    applyInputMode();
+    renderRequired();
     renderMain();
 });

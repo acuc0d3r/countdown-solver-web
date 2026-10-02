@@ -14,8 +14,24 @@
     const MAX_EXPONENT = 6;
     const MAX_ROOT = 6;
 
+    // A "must use" expression is evaluated once up front, never enumerated, so it
+    // needs no search budget and can use bounds looser than MAX_* above.
+    const REQ_MAX = 1e15;
+    const REQ_MAX_FACTORIAL = 18; // 18! = 6402373705728000 is the last factorial below 2^53
+    const REQ_MAX_ROOT = 6;
+
     // Fast factorial lookup
     const FACTORIALS = [1, 1, 2, 6, 24, 120, 720, 5040, 40320];
+
+    const REQ_FACTORIALS = (function () {
+        const table = [1];
+        for (let i = 1; i <= REQ_MAX_FACTORIAL; i++) table[i] = table[i - 1] * i;
+        return table;
+    })();
+
+    function rootLabel(degree) {
+        return degree === 2 ? '\u221A' : degree + '\u221A';
+    }
 
     function safeFactorial(n) {
         if (Number.isInteger(n) && n >= 0 && n <= MAX_FACTORIAL) {
@@ -58,7 +74,7 @@
         get complexity() {
             if (this.type === 'num') return 0;
             if (this.type === 'unary') {
-                const base = (this.op === '!') ? 2 : 3;
+                const base = (this.op === '!') ? 2 : (this.op === '-') ? 1 : 3;
                 return (this.left ? this.left.complexity : 0) + base;
             }
             if (this.type === 'binary') {
@@ -76,12 +92,32 @@
                 if (this.op === '!') {
                     return `(${this.left.formatted}!)`;
                 }
-                if (this.op === 'sqrt') {
-                    return (this.degree === 2) ? `√(${this.left.formatted})` : `(${this.degree}√(${this.left.formatted}))`;
+                if (this.op === '-') {
+                    return `(-${this.left.formatted})`;
                 }
+                return `${rootLabel(this.degree)}(${this.left.formatted})`;
             }
             if (this.type === 'binary') {
                 return `(${this.left.formatted} ${this.op} ${this.right.formatted})`;
+            }
+            return '';
+        }
+
+        // Same shape as `formatted`, but wraps the markNode subtree in a span so
+        // the solution view can highlight the required expression. Only numbers and
+        // a fixed operator vocabulary reach this string, so no escaping is needed.
+        format(markNode) {
+            if (markNode && this === markNode) {
+                return `<span class="expr-mark">${this.formatted}</span>`;
+            }
+            if (this.type === 'num') return String(this.value);
+            if (this.type === 'unary') {
+                if (this.op === '!') return `(${this.left.format(markNode)}!)`;
+                if (this.op === '-') return `(-${this.left.format(markNode)})`;
+                return `${rootLabel(this.degree)}(${this.left.format(markNode)})`;
+            }
+            if (this.type === 'binary') {
+                return `(${this.left.format(markNode)} ${this.op} ${this.right.format(markNode)})`;
             }
             return '';
         }
@@ -109,9 +145,10 @@
                     let res = node.value;
                     if (node.op === '!') {
                         steps.push({ line: `${childVal}! = ${res}`, result: res });
+                    } else if (node.op === '-') {
+                        steps.push({ line: `-${childVal} = ${res}`, result: res });
                     } else if (node.op === 'sqrt') {
-                        const degStr = node.degree === 2 ? '√' : `${node.degree}√`;
-                        steps.push({ line: `${degStr}(${childVal}) = ${res}`, result: res });
+                        steps.push({ line: `${rootLabel(node.degree)}(${childVal}) = ${res}`, result: res });
                     }
                     return res;
                 }
@@ -126,6 +163,201 @@
             }
             traverse(this);
             return steps;
+        }
+    }
+
+    class RequiredError extends Error {}
+
+    function requireWhole(v) {
+        if (!Number.isSafeInteger(v)) throw new RequiredError('that does not give a whole number');
+        if (Math.abs(v) > REQ_MAX) throw new RequiredError('that is too large to use');
+        return v;
+    }
+
+    function buildBinary(op, left, right) {
+        const a = left.value;
+        const b = right.value;
+        let v;
+        if (op === '+') v = a + b;
+        else if (op === '-') v = a - b;
+        else if (op === '*') v = a * b;
+        else {
+            if (b === 0) throw new RequiredError('division by zero');
+            if (!Number.isInteger(b) || a % b !== 0) {
+                throw new RequiredError(`${a} ÷ ${b} is not a whole number`);
+            }
+            v = Math.floor(a / b);
+        }
+        return new ASTNode('binary', requireWhole(v), left, right, op);
+    }
+
+    function buildPower(base, exp) {
+        const a = base.value;
+        const b = exp.value;
+        if (!Number.isInteger(b) || b < 0) {
+            throw new RequiredError('an exponent must be a whole number of 0 or more');
+        }
+        if (a === 0 && b === 0) throw new RequiredError('0 to the power 0 is undefined');
+        const v = Math.pow(a, b);
+        if (!Number.isFinite(v)) throw new RequiredError('that is too large to use');
+        return new ASTNode('binary', requireWhole(v), base, exp, '^');
+    }
+
+    function buildFactorial(node) {
+        const v = node.value;
+        if (!Number.isInteger(v) || v < 0) throw new RequiredError(`${v}! is undefined`);
+        if (v > REQ_MAX_FACTORIAL) throw new RequiredError(`${v}! is too large (max ${REQ_MAX_FACTORIAL}!)`);
+        return new ASTNode('unary', REQ_FACTORIALS[v], node, null, '!');
+    }
+
+    function buildRoot(degree, node) {
+        const a = node.value;
+        if (degree < 2 || degree > REQ_MAX_ROOT) {
+            throw new RequiredError(`root degree must be between 2 and ${REQ_MAX_ROOT}`);
+        }
+        if (!Number.isInteger(a)) throw new RequiredError(`${rootLabel(degree)} needs a whole number inside`);
+        if (a < 0) throw new RequiredError(`cannot take ${rootLabel(degree)} of a negative number`);
+        const r = Math.round(Math.pow(a, 1 / degree));
+        if (Math.pow(r, degree) !== a) {
+            throw new RequiredError(`${rootLabel(degree)}(${a}) is not a whole number`);
+        }
+        return new ASTNode('unary', r, node, null, 'sqrt', degree);
+    }
+
+    function buildNegate(node) {
+        return new ASTNode('unary', requireWhole(-node.value), node, null, '-');
+    }
+
+    function tokenizeRequired(src) {
+        const tokens = [];
+        let i = 0;
+        while (i < src.length) {
+            const c = src[i];
+            if (c === ' ' || c === '\t' || c === '\n') { i++; continue; }
+            if (c === '\u221A') { tokens.push({ kind: 'root' }); i++; continue; }
+            if ((c === 's' || c === 'S') && src.slice(i, i + 4).toLowerCase() === 'sqrt') {
+                tokens.push({ kind: 'root' });
+                i += 4;
+                continue;
+            }
+            if (c >= '0' && c <= '9') {
+                let j = i;
+                while (j < src.length && src[j] >= '0' && src[j] <= '9') j++;
+                const raw = src.slice(i, j);
+                if (raw.length > 15) throw new RequiredError('that number is too large');
+                tokens.push({ kind: 'num', value: Number(raw) });
+                i = j;
+                continue;
+            }
+            if (c === '*' && src[i + 1] === '*') {
+                tokens.push({ kind: 'op', value: '^' });
+                i += 2;
+                continue;
+            }
+            if ('+-*/^!'.indexOf(c) !== -1) { tokens.push({ kind: 'op', value: c }); i++; continue; }
+            if (c === '(') { tokens.push({ kind: '(' }); i++; continue; }
+            if (c === ')') { tokens.push({ kind: ')' }); i++; continue; }
+            throw new RequiredError(`"${c}" is not allowed here`);
+        }
+        return tokens;
+    }
+
+    function parseRequiredTokens(tokens) {
+        let pos = 0;
+
+        function peek(offset) {
+            return tokens[pos + (offset || 0)];
+        }
+        function isOp(value) {
+            const t = peek();
+            return !!t && t.kind === 'op' && t.value === value;
+        }
+        function startsPrimary(t) {
+            return !!t && (t.kind === 'num' || t.kind === 'root' || t.kind === '(');
+        }
+
+        function parseSum() {
+            let left = parseProduct();
+            while (isOp('+') || isOp('-')) {
+                const op = tokens[pos++].value;
+                left = buildBinary(op, left, parseProduct());
+            }
+            return left;
+        }
+
+        function parseProduct() {
+            let left = parseUnary();
+            while (isOp('*') || isOp('/')) {
+                const op = tokens[pos++].value;
+                left = buildBinary(op, left, parseUnary());
+            }
+            return left;
+        }
+
+        function parseUnary() {
+            if (isOp('-')) { pos++; return buildNegate(parseUnary()); }
+            if (isOp('+')) { pos++; return parseUnary(); }
+            return parsePower();
+        }
+
+        function parsePower() {
+            const base = parsePostfix();
+            if (isOp('^')) {
+                pos++;
+                return buildPower(base, parseUnary());
+            }
+            return base;
+        }
+
+        function parsePostfix() {
+            let node = parsePrimary();
+            while (isOp('!')) {
+                pos++;
+                node = buildFactorial(node);
+            }
+            return node;
+        }
+
+        function parsePrimary() {
+            const t = peek();
+            if (!t) throw new RequiredError('the expression is incomplete');
+            if (t.kind === 'root') { pos++; return buildRoot(2, parsePrimary()); }
+            if (t.kind === '(') {
+                pos++;
+                const inner = parseSum();
+                if (!peek() || peek().kind !== ')') throw new RequiredError('a ")" is missing');
+                pos++;
+                return inner;
+            }
+            if (t.kind === 'num') {
+                pos++;
+                const after = peek();
+                if (after && after.kind === 'root') {
+                    pos++;
+                    // "2√(9)" reads the number as the degree; a bare "9√" reads it
+                    // as the radicand, which is only decided by what follows the symbol.
+                    if (startsPrimary(peek())) return buildRoot(t.value, parsePrimary());
+                    return buildRoot(2, new ASTNode('num', requireWhole(t.value)));
+                }
+                return new ASTNode('num', requireWhole(t.value));
+            }
+            throw new RequiredError('the expression is incomplete');
+        }
+
+        const node = parseSum();
+        if (pos < tokens.length) throw new RequiredError('there is extra input at the end');
+        return node;
+    }
+
+    function evaluateRequired(source) {
+        const src = String(source == null ? '' : source).trim();
+        if (!src) return { ok: true, empty: true, value: null, node: null };
+        try {
+            const node = parseRequiredTokens(tokenizeRequired(src));
+            return { ok: true, empty: false, value: node.value, node: node };
+        } catch (err) {
+            if (err instanceof RequiredError) return { ok: false, empty: false, value: null, node: null, error: err.message };
+            throw err;
         }
     }
 
@@ -152,6 +384,24 @@
             node: new ASTNode('num', n)
         }));
 
+        // The required expression enters as one pre-evaluated atom. It can only ever
+        // leave the state by being combined into an answer, so using it is mandatory
+        // by construction rather than by a check that could be missed.
+        const required = config.required || null;
+        const requiredNode = required && required.node ? required.node : null;
+        if (requiredNode && Number.isFinite(required.value)) {
+            initial.push({ val: required.value, node: requiredNode });
+        }
+
+        // Identity, not value: a required √(9) shares its value with a plain 3 already
+        // in the number list, so matching on 3 would accept answers that never used it.
+        function containsRequired(node) {
+            if (node === requiredNode) return true;
+            if (node.left && containsRequired(node.left)) return true;
+            if (node.right && containsRequired(node.right)) return true;
+            return false;
+        }
+
         const solutions = [];
         const seenSignatures = new Set();
         const visited = new Set();
@@ -162,17 +412,24 @@
             for (let i = 0; i < state.length; i++) {
                 const item = state[i];
                 if (item.val === target) {
-                    const sig = item.node.canonicalSignature;
-                    if (!seenSignatures.has(sig)) {
-                        seenSignatures.add(sig);
-                        solutions.push({
-                            node: item.node,
-                            formatted: item.node.formatted,
-                            steps: item.node.getEvaluationSteps(),
-                            complexity: item.node.complexity
-                        });
+                    // A hit that never folded in the required subtree is not a valid
+                    // answer, and must not end the branch: that subtree is still in the
+                    // state and may yet combine into one.
+                    if (!requiredNode || containsRequired(item.node)) {
+                        const sig = item.node.canonicalSignature;
+                        if (!seenSignatures.has(sig)) {
+                            seenSignatures.add(sig);
+                            solutions.push({
+                                node: item.node,
+                                value: item.node.value,
+                                formatted: item.node.formatted,
+                                html: item.node.format(requiredNode),
+                                steps: item.node.getEvaluationSteps(),
+                                complexity: item.node.complexity
+                            });
+                        }
+                        reachedTarget = true;
                     }
-                    reachedTarget = true;
                 }
             }
 
@@ -317,6 +574,7 @@
 
     return {
         solve,
+        evaluateRequired,
         ASTNode,
         defaultConfig
     };
