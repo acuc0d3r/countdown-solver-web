@@ -139,7 +139,7 @@
                 html = `−${this.left.formatMath(markNode, 3)}`;
             } else if (this.type === 'unary') {
                 const idx = this.degree === 2 ? '' : `<sup class="rad-idx">${this.degree}</sup>`;
-                html = `<span class="radical">${idx}<span class="rad-sign">√</span>` +
+                html = `<span class="radical${idx ? ' radical-idx' : ''}">${idx}<span class="rad-sign">√</span>` +
                     `<span class="rad-body">${this.left.formatMath(markNode, 0)}</span></span>`;
             } else if (this.op === '^') {
                 prec = 4;

@@ -539,6 +539,16 @@ input[type="number"]::-webkit-inner-spin-button {
 .radical .rad-idx {
     font-size: 0.6em;
     line-height: 1;
+    /* .radical is a flex container, so vertical-align is inert here: the index
+       would sit level with the sign and read as a coefficient (3√27) instead of
+       a root index. Raise it by its own height, and pad the box by the same
+       amount so it can neither escape the radical nor collide with the row
+       above. Square roots carry no index and are left untouched. */
+    margin-top: -8px;
+}
+
+.radical.radical-idx {
+    padding-top: 8px;
 }
 
 /* Other Solutions Accordion */
