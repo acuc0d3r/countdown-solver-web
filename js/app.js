@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
             allowExponents: false,
             allowRoots: false,
             allowZeroMultiply: false,
+            katex: false,
             excluded: new Set()
         },
         keypad: {
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 allowExponents: state.config.allowExponents,
                 allowRoots: state.config.allowRoots,
                 allowZeroMultiply: state.config.allowZeroMultiply,
+                katex: state.config.katex,
                 excluded: Array.from(state.config.excluded),
                 keypadInput: state.keypadInput
             }));
@@ -52,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof saved.allowExponents === 'boolean') state.config.allowExponents = saved.allowExponents;
         if (typeof saved.allowRoots === 'boolean') state.config.allowRoots = saved.allowRoots;
         if (typeof saved.allowZeroMultiply === 'boolean') state.config.allowZeroMultiply = saved.allowZeroMultiply;
+        if (typeof saved.katex === 'boolean') state.config.katex = saved.katex;
         if (Array.isArray(saved.excluded)) state.config.excluded = new Set(saved.excluded);
         if (typeof saved.keypadInput === 'boolean') state.keypadInput = saved.keypadInput;
     }
@@ -98,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleExponents: document.getElementById('toggle-exponents'),
         toggleRoots: document.getElementById('toggle-roots'),
         toggleZeroMultiply: document.getElementById('toggle-zero-multiply'),
+        toggleKatex: document.getElementById('toggle-katex'),
         excludeBtns: document.querySelectorAll('.exclude-btn'),
         btnResetRules: document.getElementById('btn-reset-rules'),
         // Keypad modal
@@ -420,7 +424,8 @@ document.addEventListener('DOMContentLoaded', () => {
     [['toggleFactorial', 'allowFactorial'],
      ['toggleExponents', 'allowExponents'],
      ['toggleRoots', 'allowRoots'],
-     ['toggleZeroMultiply', 'allowZeroMultiply']].forEach(([toggleKey, configKey]) => {
+     ['toggleZeroMultiply', 'allowZeroMultiply'],
+     ['toggleKatex', 'katex']].forEach(([toggleKey, configKey]) => {
         dom[toggleKey].addEventListener('change', (e) => {
             state.config[configKey] = e.target.checked;
             saveRules();
@@ -449,6 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.config.allowExponents = false;
         state.config.allowRoots = false;
         state.config.allowZeroMultiply = false;
+        state.config.katex = false;
         state.config.excluded.clear();
         dom.toggleFactorial.checked = false;
         dom.toggleExponents.checked = false;
@@ -475,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.btnSolve.innerHTML = `<div class="spinner"></div><span>Solving...</span>`;
 
         // Run asynchronously via setTimeout so UI renders spinner
-        setTimeout(() => {
+        setTimeout(async () => {
             try {
                 const usingRequired = state.required.ok && !state.required.empty;
                 const requiredArg = usingRequired
@@ -502,6 +508,7 @@ allowRoots: state.config.allowRoots,
 
                 if (solutions.length > 0) {
                     haptic('success');
+                    if (state.config.katex) await loadKatex();
                     displaySolution(solutions);
                     showView('solution');
                 } else {
@@ -516,6 +523,50 @@ allowRoots: state.config.allowRoots,
             }
         }, 30);
     });
+
+    const KATEX_JS = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js';
+    const KATEX_CSS = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
+    let katexLoad = null;
+
+    function loadKatex() {
+        if (window.katex) return Promise.resolve(true);
+        if (katexLoad) return katexLoad;
+        katexLoad = new Promise((resolve) => {
+            const finish = (ok) => {
+                if (!ok) katexLoad = null;
+                resolve(ok && !!window.katex);
+            };
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = KATEX_CSS;
+            document.head.appendChild(link);
+            const script = document.createElement('script');
+            script.src = KATEX_JS;
+            script.onload = () => finish(true);
+            script.onerror = () => finish(false);
+            document.head.appendChild(script);
+            // A blocked or dead CDN must not leave the solve button spinning forever.
+            setTimeout(() => finish(!!window.katex), 6000);
+        });
+        return katexLoad;
+    }
+
+    function mathHTML(node, markNode) {
+        if (state.config.katex && window.katex) {
+            try {
+                // trust is safe here: the only strings handed to KaTeX are the digits and
+                // operators this engine emits, never anything typed by the user.
+                return window.katex.renderToString(node.formatLatex(markNode), {
+                    throwOnError: false,
+                    output: 'html',
+                    trust: true
+                });
+            } catch (err) {
+                console.warn('KaTeX render failed, using built-in renderer', err);
+            }
+        }
+        return node.formatMath(markNode);
+    }
 
     function displaySolution(solutions) {
         const primary = solutions[0];
@@ -543,11 +594,7 @@ allowRoots: state.config.allowRoots,
             dom.solutionStepsList.appendChild(div);
         });
 
-        if (req && primary.html) {
-            dom.solutionExprText.innerHTML = primary.html;
-        } else {
-            dom.solutionExprText.textContent = primary.formatted;
-        }
+        dom.solutionExprText.innerHTML = mathHTML(primary.node, req ? req.node : null);
 
         // Render alternative solutions
         if (solutions.length > 1) {
@@ -562,7 +609,7 @@ allowRoots: state.config.allowRoots,
             for (let i = 1; i < solutions.length; i++) {
                 const item = document.createElement('div');
                 item.className = 'other-item';
-                item.textContent = solutions[i].formatted;
+                item.innerHTML = mathHTML(solutions[i].node, req ? req.node : null);
                 dom.otherSolutionsList.appendChild(item);
             }
         } else {
@@ -576,6 +623,7 @@ allowRoots: state.config.allowRoots,
     dom.toggleExponents.checked = state.config.allowExponents;
     dom.toggleRoots.checked = state.config.allowRoots;
     dom.toggleZeroMultiply.checked = state.config.allowZeroMultiply;
+    dom.toggleKatex.checked = state.config.katex;
     state.config.excluded.forEach(op => {
         const btn = document.querySelector(`.exclude-btn[data-op="${op}"]`);
         if (btn) btn.classList.add('excluded');

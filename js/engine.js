@@ -122,6 +122,65 @@
             return '';
         }
 
+        // Typeset variant of format(): real superscripts, a radical with an overline,
+        // and glyphs for the operators, with parentheses kept only where precedence
+        // needs them. minPrec is what the parent demands; looser children get wrapped.
+        formatMath(markNode, minPrec = 0) {
+            let html;
+            let prec = 6;
+
+            if (this.type === 'num') {
+                html = String(this.value);
+            } else if (this.type === 'unary' && this.op === '!') {
+                prec = 5;
+                html = `${this.left.formatMath(markNode, 5)}!`;
+            } else if (this.type === 'unary' && this.op === '-') {
+                prec = 3;
+                html = `−${this.left.formatMath(markNode, 3)}`;
+            } else if (this.type === 'unary') {
+                const idx = this.degree === 2 ? '' : `<sup class="rad-idx">${this.degree}</sup>`;
+                html = `<span class="radical">${idx}<span class="rad-sign">√</span>` +
+                    `<span class="rad-body">${this.left.formatMath(markNode, 0)}</span></span>`;
+            } else if (this.op === '^') {
+                prec = 4;
+                html = `${this.left.formatMath(markNode, 5)}<sup>${this.right.formatMath(markNode, 4)}</sup>`;
+            } else {
+                prec = (this.op === '+' || this.op === '-') ? 1 : 2;
+                const sym = { '+': '+', '-': '−', '*': '×', '/': '÷' }[this.op] || this.op;
+                // Right operand of - and / needs grouping even at equal precedence.
+                const rightMin = (this.op === '-' || this.op === '/') ? prec + 1 : prec;
+                html = `${this.left.formatMath(markNode, prec)} ${sym} ${this.right.formatMath(markNode, rightMin)}`;
+            }
+
+            if (prec < minPrec) html = `(${html})`;
+            return (markNode && this === markNode) ? `<span class="expr-mark">${html}</span>` : html;
+        }
+
+        formatLatex(markNode) {
+            if (this.type === 'num') return String(this.value);
+            if (this.type === 'unary') {
+                // A factorial binds to its whole operand, so anything but a bare
+                // number needs grouping or "5 - 1!" would read as 5 - (1!).
+                const arg = this.left;
+                const s = arg.formatLatex(markNode);
+                const grouped = arg.type === 'num' ? s : `(${s})`;
+                if (this.op === '!') return `${grouped}!`;
+                if (this.op === '-') return `-${grouped}`;
+                const root = this.degree === 2 ? `\\sqrt{${s}}` : `\\sqrt[${this.degree}]{${s}}`;
+                return (markNode && this === markNode) ? `\\htmlClass{expr-mark}{${root}}` : root;
+            }
+            const operand = (node) => {
+                const s = node.formatLatex(markNode);
+                return node.type === 'binary' ? `(${s})` : s;
+            };
+            if (this.op === '^') {
+                return `${operand(this.left)}^{${this.right.formatLatex(markNode)}}`;
+            }
+            const sym = { '+': ' + ', '-': ' - ', '*': ' \\times ', '/': ' \\div ' }[this.op] || ' ';
+            const body = `${operand(this.left)}${sym}${operand(this.right)}`;
+            return (markNode && this === markNode) ? `\\htmlClass{expr-mark}{${body}}` : body;
+        }
+
         get canonicalSignature() {
             if (this.type === 'num') return `N:${this.value}`;
             if (this.type === 'unary') return `U:${this.op}:${this.degree}:${this.left.canonicalSignature}`;
