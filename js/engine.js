@@ -126,12 +126,19 @@
             if (this.type === 'num') return `N:${this.value}`;
             if (this.type === 'unary') return `U:${this.op}:${this.degree}:${this.left.canonicalSignature}`;
             if (this.type === 'binary') {
-                const s1 = this.left.canonicalSignature;
-                const s2 = this.right.canonicalSignature;
                 if (this.op === '+' || this.op === '*') {
-                    return s1 < s2 ? `B:${this.op}(${s1},${s2})` : `B:${this.op}(${s2},${s1})`;
+                    // Sorting only the two immediate children is not enough: (a+3)+5 and
+                    // (a+5)+3 associate differently, so they stay distinct and the solution
+                    // list fills with reorderings. Flatten the whole chain, then sort.
+                    const parts = [];
+                    const flatten = (n) => {
+                        if (n.type === 'binary' && n.op === this.op) { flatten(n.left); flatten(n.right); }
+                        else parts.push(n.canonicalSignature);
+                    };
+                    flatten(this);
+                    return `B:${this.op}(${parts.sort().join(',')})`;
                 }
-                return `B:${this.op}(${s1},${s2})`;
+                return `B:${this.op}(${this.left.canonicalSignature},${this.right.canonicalSignature})`;
             }
             return '';
         }
