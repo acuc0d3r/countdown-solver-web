@@ -411,6 +411,7 @@
         allowFactorial: false,
         allowExponents: false,
         allowRoots: false,
+        allowZeroMultiply: false,
         excluded: new Set(),
         maxDepth: MAX_DEPTH,
         maxValue: MAX_VALUE,
@@ -447,6 +448,10 @@
             if (node.right && containsRequired(node.right)) return true;
             return false;
         }
+
+        // A zero cannot move a non-zero target closer, so it only ever serves to neutralise
+        // an awkward value; gating it keeps that escape hatch opt-in.
+        const zeroOk = (v) => config.allowZeroMultiply || v !== 0;
 
         const solutions = [];
         const seenSignatures = new Set();
@@ -569,7 +574,8 @@
                     // Multiplication (*)
                     if (!config.excluded.has('*')) {
                         const valNew = a * b;
-                        if (Number.isSafeInteger(valNew) && Math.abs(valNew) <= config.maxValue) {
+                        if (Number.isSafeInteger(valNew) && Math.abs(valNew) <= config.maxValue
+                            && zeroOk(valNew)) {
                             const next = rest.concat([{ val: valNew, node: new ASTNode('binary', valNew, nodeA, nodeB, '*') }]);
                             dfs(next, depth + 1);
                             if (solutions.length >= config.maxSolutions) return;
@@ -580,15 +586,19 @@
                     if (!config.excluded.has('/')) {
                         if (b !== 0 && a % b === 0) {
                             const valNew = Math.floor(a / b);
-                            const next = rest.concat([{ val: valNew, node: new ASTNode('binary', valNew, nodeA, nodeB, '/') }]);
-                            dfs(next, depth + 1);
-                            if (solutions.length >= config.maxSolutions) return;
+                            if (zeroOk(valNew)) {
+                                const next = rest.concat([{ val: valNew, node: new ASTNode('binary', valNew, nodeA, nodeB, '/') }]);
+                                dfs(next, depth + 1);
+                                if (solutions.length >= config.maxSolutions) return;
+                            }
                         }
                         if (a !== 0 && b % a === 0) {
                             const valNew = Math.floor(b / a);
-                            const next = rest.concat([{ val: valNew, node: new ASTNode('binary', valNew, nodeB, nodeA, '/') }]);
-                            dfs(next, depth + 1);
-                            if (solutions.length >= config.maxSolutions) return;
+                            if (zeroOk(valNew)) {
+                                const next = rest.concat([{ val: valNew, node: new ASTNode('binary', valNew, nodeB, nodeA, '/') }]);
+                                dfs(next, depth + 1);
+                                if (solutions.length >= config.maxSolutions) return;
+                            }
                         }
                     }
 

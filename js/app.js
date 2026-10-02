@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
             allowFactorial: false,
             allowExponents: false,
             allowRoots: false,
+            allowZeroMultiply: false,
             excluded: new Set()
         },
         keypad: {
@@ -29,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 allowFactorial: state.config.allowFactorial,
                 allowExponents: state.config.allowExponents,
                 allowRoots: state.config.allowRoots,
+                allowZeroMultiply: state.config.allowZeroMultiply,
                 excluded: Array.from(state.config.excluded),
                 keypadInput: state.keypadInput
             }));
@@ -49,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof saved.allowFactorial === 'boolean') state.config.allowFactorial = saved.allowFactorial;
         if (typeof saved.allowExponents === 'boolean') state.config.allowExponents = saved.allowExponents;
         if (typeof saved.allowRoots === 'boolean') state.config.allowRoots = saved.allowRoots;
+        if (typeof saved.allowZeroMultiply === 'boolean') state.config.allowZeroMultiply = saved.allowZeroMultiply;
         if (Array.isArray(saved.excluded)) state.config.excluded = new Set(saved.excluded);
         if (typeof saved.keypadInput === 'boolean') state.keypadInput = saved.keypadInput;
     }
@@ -94,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleFactorial: document.getElementById('toggle-factorial'),
         toggleExponents: document.getElementById('toggle-exponents'),
         toggleRoots: document.getElementById('toggle-roots'),
+        toggleZeroMultiply: document.getElementById('toggle-zero-multiply'),
         excludeBtns: document.querySelectorAll('.exclude-btn'),
         btnResetRules: document.getElementById('btn-reset-rules'),
         // Keypad modal
@@ -432,6 +436,12 @@ document.addEventListener('DOMContentLoaded', () => {
         haptic('light');
     });
 
+    dom.toggleZeroMultiply.addEventListener('change', (e) => {
+        state.config.allowZeroMultiply = e.target.checked;
+        saveRules();
+        haptic('light');
+    });
+
     dom.excludeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const op = btn.dataset.op;
@@ -452,10 +462,12 @@ document.addEventListener('DOMContentLoaded', () => {
         state.config.allowFactorial = false;
         state.config.allowExponents = false;
         state.config.allowRoots = false;
+        state.config.allowZeroMultiply = false;
         state.config.excluded.clear();
         dom.toggleFactorial.checked = false;
         dom.toggleExponents.checked = false;
         dom.toggleRoots.checked = false;
+        dom.toggleZeroMultiply.checked = false;
         dom.excludeBtns.forEach(b => b.classList.remove('excluded'));
         saveRules();
         showToast('Rules reset to default');
@@ -491,7 +503,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         allowFactorial: state.config.allowFactorial,
                         allowExponents: state.config.allowExponents,
-                        allowRoots: state.config.allowRoots,
+allowRoots: state.config.allowRoots,
+                        allowZeroMultiply: state.config.allowZeroMultiply,
                         excluded: state.config.excluded,
                         required: requiredArg,
                         maxSolutions: 8
@@ -574,6 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.toggleFactorial.checked = state.config.allowFactorial;
     dom.toggleExponents.checked = state.config.allowExponents;
     dom.toggleRoots.checked = state.config.allowRoots;
+    dom.toggleZeroMultiply.checked = state.config.allowZeroMultiply;
     state.config.excluded.forEach(op => {
         const btn = document.querySelector(`.exclude-btn[data-op="${op}"]`);
         if (btn) btn.classList.add('excluded');
