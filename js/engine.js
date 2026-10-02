@@ -125,7 +125,7 @@
         // Typeset variant of format(): real superscripts, a radical with an overline,
         // and glyphs for the operators, with parentheses kept only where precedence
         // needs them. minPrec is what the parent demands; looser children get wrapped.
-        formatMath(markNode, minPrec = 0) {
+        formatMath(markNode, minPrec = 0, inFrac = false) {
             let html;
             let prec = 6;
 
@@ -133,51 +133,68 @@
                 html = String(this.value);
             } else if (this.type === 'unary' && this.op === '!') {
                 prec = 5;
-                html = `${this.left.formatMath(markNode, 5)}!`;
+                // Demand full precedence so a postfix operand is wrapped: without it
+                // (3!)! renders as 3!!, which reads as a double factorial (3!! = 3).
+                html = `${this.left.formatMath(markNode, 6, inFrac)}!`;
             } else if (this.type === 'unary' && this.op === '-') {
                 prec = 3;
-                html = `−${this.left.formatMath(markNode, 3)}`;
+                html = `−${this.left.formatMath(markNode, 3, inFrac)}`;
             } else if (this.type === 'unary') {
                 const idx = this.degree === 2 ? '' : `<sup class="rad-idx">${this.degree}</sup>`;
                 html = `<span class="radical${idx ? ' radical-idx' : ''}">${idx}<span class="rad-sign">√</span>` +
-                    `<span class="rad-body">${this.left.formatMath(markNode, 0)}</span></span>`;
+                    `<span class="rad-body">${this.left.formatMath(markNode, 0, true)}</span></span>`;
             } else if (this.op === '^') {
                 prec = 4;
-                html = `${this.left.formatMath(markNode, 5)}<sup>${this.right.formatMath(markNode, 4)}</sup>`;
+                html = `${this.left.formatMath(markNode, 5, inFrac)}<sup>${this.right.formatMath(markNode, 0, true)}</sup>`;
+            } else if (this.op === '/' && !inFrac) {
+                prec = 2;
+                html = `<span class="frac"><span class="frac-n">${this.left.formatMath(markNode, 0, true)}</span>` +
+                    `<span class="frac-d">${this.right.formatMath(markNode, 0, true)}</span></span>`;
             } else {
                 prec = (this.op === '+' || this.op === '-') ? 1 : 2;
                 const sym = { '+': '+', '-': '−', '*': '×', '/': '÷' }[this.op] || this.op;
                 // Right operand of - and / needs grouping even at equal precedence.
                 const rightMin = (this.op === '-' || this.op === '/') ? prec + 1 : prec;
-                html = `${this.left.formatMath(markNode, prec)} ${sym} ${this.right.formatMath(markNode, rightMin)}`;
+                html = `${this.left.formatMath(markNode, prec, inFrac)} ${sym} ${this.right.formatMath(markNode, rightMin, inFrac)}`;
             }
 
             if (prec < minPrec) html = `(${html})`;
             return (markNode && this === markNode) ? `<span class="expr-mark">${html}</span>` : html;
         }
 
-        formatLatex(markNode) {
-            if (this.type === 'num') return String(this.value);
-            if (this.type === 'unary') {
-                // A factorial binds to its whole operand, so anything but a bare
-                // number needs grouping or "5 - 1!" would read as 5 - (1!).
-                const arg = this.left;
-                const s = arg.formatLatex(markNode);
-                const grouped = arg.type === 'num' ? s : `(${s})`;
-                if (this.op === '!') return `${grouped}!`;
-                if (this.op === '-') return `-${grouped}`;
-                const root = this.degree === 2 ? `\\sqrt{${s}}` : `\\sqrt[${this.degree}]{${s}}`;
-                return (markNode && this === markNode) ? `\\htmlClass{expr-mark}{${root}}` : root;
+        // Same precedence rules as formatMath, but emits LaTeX for KaTeX. Division
+        // becomes a real fraction; inFrac keeps a division that is already part of a
+        // fraction linear, so fractions never stack inside fractions. Exponents and
+        // radicands are forced linear too, where a stacked bar would be illegible.
+        formatLatex(markNode, minPrec = 0, inFrac = false) {
+            let body;
+            let prec = 6;
+
+            if (this.type === 'num') {
+                body = String(this.value);
+            } else if (this.type === 'unary' && this.op === '!') {
+                prec = 5;
+                body = `${this.left.formatLatex(markNode, 6, inFrac)}!`;
+            } else if (this.type === 'unary' && this.op === '-') {
+                prec = 3;
+                body = `-${this.left.formatLatex(markNode, 3, inFrac)}`;
+            } else if (this.type === 'unary') {
+                const s = this.left.formatLatex(markNode, 0, true);
+                body = this.degree === 2 ? `\\sqrt{${s}}` : `\\sqrt[${this.degree}]{${s}}`;
+            } else if (this.op === '^') {
+                prec = 4;
+                body = `${this.left.formatLatex(markNode, 5, inFrac)}^{${this.right.formatLatex(markNode, 0, true)}}`;
+            } else if (this.op === '/' && !inFrac) {
+                prec = 2;
+                body = `\\frac{${this.left.formatLatex(markNode, 0, true)}}{${this.right.formatLatex(markNode, 0, true)}}`;
+            } else {
+                prec = (this.op === '+' || this.op === '-') ? 1 : 2;
+                const sym = { '+': ' + ', '-': ' - ', '*': ' \\times ', '/': ' \\div ' }[this.op] || ' ';
+                const rightMin = (this.op === '-' || this.op === '/') ? prec + 1 : prec;
+                body = `${this.left.formatLatex(markNode, prec, inFrac)}${sym}${this.right.formatLatex(markNode, rightMin, inFrac)}`;
             }
-            const operand = (node) => {
-                const s = node.formatLatex(markNode);
-                return node.type === 'binary' ? `(${s})` : s;
-            };
-            if (this.op === '^') {
-                return `${operand(this.left)}^{${this.right.formatLatex(markNode)}}`;
-            }
-            const sym = { '+': ' + ', '-': ' - ', '*': ' \\times ', '/': ' \\div ' }[this.op] || ' ';
-            const body = `${operand(this.left)}${sym}${operand(this.right)}`;
+
+            if (prec < minPrec) body = `\\left(${body}\\right)`;
             return (markNode && this === markNode) ? `\\htmlClass{expr-mark}{${body}}` : body;
         }
 

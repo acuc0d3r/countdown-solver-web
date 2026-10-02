@@ -551,6 +551,24 @@ input[type="number"]::-webkit-inner-spin-button {
     padding-top: 8px;
 }
 
+.frac {
+    display: inline-flex;
+    flex-direction: column;
+    vertical-align: middle;
+    text-align: center;
+    line-height: 1.15;
+    margin: 0 1px;
+}
+
+.frac-n {
+    border-bottom: 1px solid currentColor;
+    padding: 0 2px 1px;
+}
+
+.frac-d {
+    padding: 1px 2px 0;
+}
+
 /* Other Solutions Accordion */
 .other-solutions {
     margin-top: 4px;
