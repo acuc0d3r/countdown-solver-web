@@ -407,13 +407,12 @@ input[type="number"]::-webkit-inner-spin-button {
     border-radius: 8px;
     padding: 7px 10px;
     color: var(--accent-cyan);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-stack);
     font-size: 13px;
 }
 
 .expr-field::placeholder {
     color: var(--text-tertiary);
-    font-family: var(--font-stack);
 }
 
 .expr-field:focus {
