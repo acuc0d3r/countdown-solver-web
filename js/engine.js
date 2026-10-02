@@ -625,6 +625,10 @@
 
         // Sort by complexity ascending (simplest solutions first)
         solutions.sort((a, b) => a.complexity - b.complexity);
+
+        // The DFS abandons its search at maxSolutions, so a full array does not mean
+        // the list is complete. Callers report "N+" rather than an unproven total.
+        solutions.truncated = solutions.length >= config.maxSolutions;
         return solutions;
     }
 

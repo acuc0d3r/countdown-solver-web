@@ -7,7 +7,7 @@ An ultra-lightweight, high-performance Countdown Numbers game solver designed sp
 - **AMOLED True-Black Theme**: Designed for Apple Watch OLED displays with high-contrast color coding.
 - **Native Number Entry**: Target and numbers are entered through standard `input type="number"` fields with a numeric keypad. Switch to the built-in keypad under **Rules → Input** if you prefer it; that choice is remembered.
 - **Must-Use Expressions**: Optionally require the solution to include an expression such as `(3+4)!`, `√(9)`, `2^5`, or `3√(27)`. Every number in the expression must be one you added, and those numbers are spent by it — `(8+4)!` consumes your 8 and 4 instead of granting a free extra value. The required value is highlighted in the answer, and every result is guaranteed to use it.
-- **Step-by-Step Arithmetic**: Outputs arithmetic steps line-by-line (e.g., `50 + 8 = 58`, `2 * 7 = 14`, `58 * 14 = 812`) as well as full algebraic expressions.
+- **Step-by-Step Arithmetic**: Outputs arithmetic steps line-by-line (e.g., `50 + 8 = 58`, `2 * 7 = 14`, `58 * 14 = 812`) as well as full algebraic expressions. The search stops after 50 solutions to keep the solver responsive, so a count written as `N+` means further solutions exist beyond the ones listed.
 - **Touch & Keypad Optimized**: Large tactile tap targets, quick-add preset buttons (2 through 9), and a 3x4 numeric keypad modal with auto-dismiss.
 - **Customizable Rules**: Enable/disable factorials (!), exponents (^), roots (√), exclude specific operations (+, -, *, /), block zero tricks, and switch number entry between native fields and the custom keypad. Rules persist across reloads.
 - **Vercel Ready**: Ready for 1-click deployment to Vercel.

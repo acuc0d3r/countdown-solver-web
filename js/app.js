@@ -493,7 +493,7 @@ allowRoots: state.config.allowRoots,
                         allowZeroMultiply: state.config.allowZeroMultiply,
                         excluded: state.config.excluded,
                         required: requiredArg,
-                        maxSolutions: 8
+                        maxSolutions: 50
                     }
                 );
 
@@ -552,7 +552,9 @@ allowRoots: state.config.allowRoots,
         // Render alternative solutions
         if (solutions.length > 1) {
             dom.otherSolutionsContainer.classList.remove('hidden');
-            dom.otherCount.textContent = solutions.length - 1;
+            dom.otherCount.textContent = solutions.truncated
+                ? solutions.length - 1 + '+'
+                : solutions.length - 1;
             dom.otherSolutionsList.innerHTML = '';
             dom.otherSolutionsList.classList.add('hidden');
             dom.otherChevron.textContent = '▾';
