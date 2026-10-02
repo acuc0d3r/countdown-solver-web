@@ -349,14 +349,60 @@
         return node;
     }
 
-    function evaluateRequired(source) {
+    function collectRequiredLiterals(node, out) {
+        if (node.type === 'num') { out.push(node.value); return out; }
+        if (node.left) collectRequiredLiterals(node.left, out);
+        if (node.right) collectRequiredLiterals(node.right, out);
+        return out;
+    }
+
+    // Unclaimed numbers stay in `remaining` and remain playable, so a must-use
+    // expression costs the player its literals instead of granting a free value.
+    function claimRequiredNumbers(node, numbers) {
+        const literals = collectRequiredLiterals(node, []);
+        if (!Array.isArray(numbers)) return { used: null, remaining: null };
+
+        const pool = numbers.slice();
+        const used = [];
+        for (const lit of literals) {
+            const idx = pool.indexOf(lit);
+            if (idx === -1) {
+                const needed = literals.filter(v => v === lit).length;
+                const have = numbers.filter(v => v === lit).length;
+                return {
+                    used: null,
+                    remaining: null,
+                    error: needed > 1
+                        ? `needs ${needed} ${lit}s but only ${have} added`
+                        : `${lit} is not one of your numbers`
+                };
+            }
+            pool.splice(idx, 1);
+            used.push(lit);
+        }
+        return { used, remaining: pool };
+    }
+
+    function evaluateRequired(source, numbers) {
         const src = String(source == null ? '' : source).trim();
-        if (!src) return { ok: true, empty: true, value: null, node: null };
+        if (!src) {
+            return {
+                ok: true, empty: true, value: null, node: null,
+                used: [], remaining: Array.isArray(numbers) ? numbers.slice() : null
+            };
+        }
         try {
             const node = parseRequiredTokens(tokenizeRequired(src));
-            return { ok: true, empty: false, value: node.value, node: node };
+            const claim = claimRequiredNumbers(node, numbers);
+            if (claim.error) {
+                return { ok: false, empty: false, value: null, node: null, used: null, remaining: null, error: claim.error };
+            }
+            return {
+                ok: true, empty: false, value: node.value, node: node,
+                used: claim.used, remaining: claim.remaining
+            };
         } catch (err) {
-            if (err instanceof RequiredError) return { ok: false, empty: false, value: null, node: null, error: err.message };
+            if (err instanceof RequiredError) return { ok: false, empty: false, value: null, node: null, used: null, remaining: null, error: err.message };
             throw err;
         }
     }

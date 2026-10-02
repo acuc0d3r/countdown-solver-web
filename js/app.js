@@ -180,6 +180,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Render Main View
     function renderMain() {
+        syncRequired();
+
         // Target display
         if (state.target && state.target > 0) {
             dom.targetValue.textContent = state.target;
@@ -226,7 +228,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hasText) { fb.textContent = ''; return; }
 
         if (state.required.ok) {
-            fb.textContent = `= ${state.required.value}`;
+            const used = state.required.used || [];
+            const suffix = used.length ? ` · uses ${used.join(', ')}` : '';
+            fb.textContent = `= ${state.required.value}${suffix}`;
             fb.classList.remove('error');
         } else {
             fb.textContent = state.required.error;
@@ -236,14 +240,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleRequiredInput() {
-        state.required = window.CountdownEngine.evaluateRequired(dom.requiredInput.value);
-        renderRequired();
         renderMain();
+    }
+
+    // Validity depends on the numbers added, so re-check from renderMain rather than
+    // from each of the five call sites that can change that list.
+    function syncRequired() {
+        if (!dom.requiredInput.value.trim()) return;
+        state.required = window.CountdownEngine.evaluateRequired(dom.requiredInput.value, state.numbers);
+        renderRequired();
     }
 
     function clearRequired() {
         dom.requiredInput.value = '';
-        state.required = window.CountdownEngine.evaluateRequired('');
+        state.required = window.CountdownEngine.evaluateRequired('', state.numbers);
         haptic('light');
         renderRequired();
         renderMain();
@@ -469,12 +479,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Run asynchronously via setTimeout so UI renders spinner
         setTimeout(() => {
             try {
-                const requiredArg = (state.required.ok && !state.required.empty)
+                const usingRequired = state.required.ok && !state.required.empty;
+                const requiredArg = usingRequired
                     ? { value: state.required.value, node: state.required.node }
                     : null;
+                const pool = usingRequired ? state.required.remaining : state.numbers;
 
                 const solutions = window.CountdownEngine.solve(
-                    state.numbers,
+                    pool,
                     state.target,
                     {
                         allowFactorial: state.config.allowFactorial,
