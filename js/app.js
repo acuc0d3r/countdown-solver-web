@@ -247,10 +247,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMain();
     }
 
-    // Validity depends on the numbers added, so re-check from renderMain rather than
-    // from each of the five call sites that can change that list.
+    // No early return on empty input: state must reset, or a cleared expression
+    // would keep being enforced at solve time.
     function syncRequired() {
-        if (!dom.requiredInput.value.trim()) return;
         state.required = window.CountdownEngine.evaluateRequired(dom.requiredInput.value, state.numbers);
         renderRequired();
     }
@@ -418,28 +417,15 @@ document.addEventListener('DOMContentLoaded', () => {
         haptic('light');
     });
 
-    dom.toggleFactorial.addEventListener('change', (e) => {
-        state.config.allowFactorial = e.target.checked;
-        saveRules();
-        haptic('light');
-    });
-
-    dom.toggleExponents.addEventListener('change', (e) => {
-        state.config.allowExponents = e.target.checked;
-        saveRules();
-        haptic('light');
-    });
-
-    dom.toggleRoots.addEventListener('change', (e) => {
-        state.config.allowRoots = e.target.checked;
-        saveRules();
-        haptic('light');
-    });
-
-    dom.toggleZeroMultiply.addEventListener('change', (e) => {
-        state.config.allowZeroMultiply = e.target.checked;
-        saveRules();
-        haptic('light');
+    [['toggleFactorial', 'allowFactorial'],
+     ['toggleExponents', 'allowExponents'],
+     ['toggleRoots', 'allowRoots'],
+     ['toggleZeroMultiply', 'allowZeroMultiply']].forEach(([toggleKey, configKey]) => {
+        dom[toggleKey].addEventListener('change', (e) => {
+            state.config[configKey] = e.target.checked;
+            saveRules();
+            haptic('light');
+        });
     });
 
     dom.excludeBtns.forEach(btn => {
