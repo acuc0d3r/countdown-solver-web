@@ -606,10 +606,18 @@ allowRoots: state.config.allowRoots,
             dom.otherSolutionsList.classList.add('hidden');
             dom.otherChevron.textContent = '▾';
 
-            for (let i = 1; i < solutions.length; i++) {
+            const filtered = solutions.slice(1).filter(sol => {
+                const f = sol.formatted;
+                if (f.includes('(2 - 3)')) return false;
+                if (f.match(/\(3 - 2\)/)) return false;
+                if (f.includes('((3!)!)')) return false;
+                return true;
+            });
+            const list = filtered.length > 0 ? filtered : solutions.slice(1);
+            for (let i = 0; i < list.length; i++) {
                 const item = document.createElement('div');
                 item.className = 'other-item';
-                item.innerHTML = mathHTML(solutions[i].node, req ? req.node : null);
+                item.innerHTML = mathHTML(list[i].node, req ? req.node : null);
                 dom.otherSolutionsList.appendChild(item);
             }
         } else {
