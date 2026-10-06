@@ -619,26 +619,14 @@ allowRoots: state.config.allowRoots,
                 }
             }
             list = clean.length > 0 ? clean : list;
-            const must = ['((6!) + ((5!) + 9))', '((3 ^ 2) + ((5!) + (6!)))'];
             const out = [];
             const have = new Set();
-            for (const m of must) {
-                const mm = list.find(x => x.formatted === m);
-                if (!mm) {
-                    const orig = solutions.slice(1).find(x => x.formatted === m);
-                    if (orig) mm = orig;
-                }
-                if (mm) {
-                    const k = mm.formatted.replace(/\s+/g,'');
-                    if (!have.has(k)) { out.push(mm); have.add(k); }
-                }
-            }
             for (const sol of list) {
                 const k = sol.formatted.replace(/\s+/g,'');
                 if (!have.has(k)) {
                     out.push(sol);
                     have.add(k);
-                    if (out.length >= 15) break;
+                    if (out.length >= 30) break;
                 }
             }
             list = out.length > 0 ? out : list;
