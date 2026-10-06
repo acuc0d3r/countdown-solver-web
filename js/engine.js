@@ -498,7 +498,7 @@
         excluded: new Set(),
         maxDepth: MAX_DEPTH,
         maxValue: MAX_VALUE,
-        maxSolutions: 15
+        maxSolutions: 30
     };
 
     function solve(numbers, target, customConfig = {}) {
