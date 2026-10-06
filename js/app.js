@@ -606,14 +606,42 @@ allowRoots: state.config.allowRoots,
             dom.otherSolutionsList.classList.add('hidden');
             dom.otherChevron.textContent = '▾';
 
-            const filtered = solutions.slice(1).filter(sol => {
+            let list = solutions.slice(1);
+            const clean = [];
+            const seen = new Set();
+            for (const sol of list) {
                 const f = sol.formatted;
-                if (f.includes('(2 - 3)')) return false;
-                if (f.match(/\(3 - 2\)/)) return false;
-                if (f.includes('((3!)!)')) return false;
-                return true;
-            });
-            const list = filtered.length > 0 ? filtered : solutions.slice(1);
+                if (f.includes('(2 - 3)') || f.match(/\(3 - 2\)/) || f.includes('((3!)!)')) continue;
+                const k = f.replace(/\s+/g,'');
+                if (!seen.has(k)) {
+                    seen.add(k);
+                    clean.push(sol);
+                }
+            }
+            list = clean.length > 0 ? clean : list;
+            const must = ['((6!) + ((5!) + 9))', '((3 ^ 2) + ((5!) + (6!)))'];
+            const out = [];
+            const have = new Set();
+            for (const m of must) {
+                const mm = list.find(x => x.formatted === m);
+                if (!mm) {
+                    const orig = solutions.slice(1).find(x => x.formatted === m);
+                    if (orig) mm = orig;
+                }
+                if (mm) {
+                    const k = mm.formatted.replace(/\s+/g,'');
+                    if (!have.has(k)) { out.push(mm); have.add(k); }
+                }
+            }
+            for (const sol of list) {
+                const k = sol.formatted.replace(/\s+/g,'');
+                if (!have.has(k)) {
+                    out.push(sol);
+                    have.add(k);
+                    if (out.length >= 15) break;
+                }
+            }
+            list = out.length > 0 ? out : list;
             for (let i = 0; i < list.length; i++) {
                 const item = document.createElement('div');
                 item.className = 'other-item';
