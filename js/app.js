@@ -499,7 +499,7 @@ allowRoots: state.config.allowRoots,
                         allowZeroMultiply: state.config.allowZeroMultiply,
                         excluded: state.config.excluded,
                         required: requiredArg,
-                        maxSolutions: 30
+                        maxSolutions: 15
                     }
                 );
 

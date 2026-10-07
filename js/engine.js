@@ -9,7 +9,7 @@
     'use strict';
 
     const MAX_VALUE = 1000000;
-    const MAX_DEPTH = 6;
+    const MAX_DEPTH = 5;
     const MAX_FACTORIAL = 8;
     const MAX_EXPONENT = 6;
     const MAX_ROOT = 6;
@@ -498,7 +498,7 @@
         excluded: new Set(),
         maxDepth: MAX_DEPTH,
         maxValue: MAX_VALUE,
-        maxSolutions: 30
+        maxSolutions: 15
     };
 
     function solve(numbers, target, customConfig = {}) {
